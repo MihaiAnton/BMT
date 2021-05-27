@@ -3,7 +3,7 @@ import spacy
 import torch
 from torch.nn.utils.rnn import pad_sequence
 from torch.utils.data.dataset import Dataset
-from torchtext import data
+from torchtext.legacy import data
 
 from datasets.load_features import fill_missing_features, load_features_from_npy
 
