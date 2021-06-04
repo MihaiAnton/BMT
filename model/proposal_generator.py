@@ -283,7 +283,7 @@ class MultimodalProposalGenerator(nn.Module):
 
         x = x.permute(0, 2, 1, 3).contiguous()
         grid_cell = torch.arange(S).view(1, 1, S).float()
-        grid_cell = grid_cell.to(self.cfg.device) if self.nocuda else grid_cell
+        grid_cell = grid_cell.to(self.cfg.device) if not self.nocuda else grid_cell
         # After dividing anchors by the stride, they represent the size size of
         # how many grid celts they are overlapping: 1.2 = 1 and 20% of a grid cell.
         # After multiplying them by the stride, the pixel values are going to be
