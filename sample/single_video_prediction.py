@@ -1,3 +1,4 @@
+
 import argparse
 import os
 import sys
@@ -6,28 +7,30 @@ import numpy as np
 import torch
 
 sys.path.insert(1, os.path.join(sys.path[0], '..'))
-from datasets.captioning_dataset import ActivityNetCaptionsDataset
 # from datasets.load_features import load_features_from_npy
-from datasets.load_features import crop_a_segment, pad_segment
-from epoch_loops.captioning_epoch_loops import make_masks
-from model.captioning_module import BiModalTransformer
-from model.proposal_generator import MultimodalProposalGenerator
-from utilities.proposal_utils import (get_corner_coords,
-                                      remove_very_short_segments,
-                                      select_topk_predictions, trim_proposals, non_max_suppresion)
-from epoch_loops.captioning_epoch_loops import greedy_decoder
+if True:    # prevents the formatter from moving the dependencies before the path edit
+    from typing import Dict, List, Union
+    from epoch_loops.captioning_epoch_loops import greedy_decoder
+    from utilities.proposal_utils import (get_corner_coords,
+                                          remove_very_short_segments,
+                                          select_topk_predictions, trim_proposals, non_max_suppresion)
+    from model.proposal_generator import MultimodalProposalGenerator
+    from model.captioning_module import BiModalTransformer
+    from epoch_loops.captioning_epoch_loops import make_masks
+    from datasets.load_features import crop_a_segment, pad_segment
+    from datasets.captioning_dataset import ActivityNetCaptionsDataset
 
-from typing import Dict, List, Union
 
 class Config(object):
     # I need this to keep the name defined to load the config objects from model checkpoints.
     def __init__(self, to_log=True):
         pass
 
+
 def load_features_from_npy(
-        feature_paths: Dict[str, str], start: float, end: float, duration: float, pad_idx: int, 
-        device: int, get_full_feat=False, pad_feats_up_to: Dict[str, int] = None
-    ) -> Dict[str, torch.Tensor]:
+    feature_paths: Dict[str, str], start: float, end: float, duration: float, pad_idx: int,
+    device: int, get_full_feat=False, pad_feats_up_to: Dict[str, int] = None, nocuda: bool = False
+) -> Dict[str, torch.Tensor]:
     '''Loads the pre-extracted features from numpy files. 
     This function is conceptually close to `datasets.load_feature.load_features_from_npy` but cleaned up 
     for demonstration purpose.
@@ -58,9 +61,11 @@ def load_features_from_npy(
 
     # for proposal generation we pad the features
     if get_full_feat:
-        stack_vggish = pad_segment(stack_vggish, pad_feats_up_to['audio'], pad_idx)
+        stack_vggish = pad_segment(
+            stack_vggish, pad_feats_up_to['audio'], pad_idx)
         stack_rgb = pad_segment(stack_rgb, pad_feats_up_to['video'], pad_idx)
-        stack_flow = pad_segment(stack_flow, pad_feats_up_to['video'], pad_idx=0)
+        stack_flow = pad_segment(
+            stack_flow, pad_feats_up_to['video'], pad_idx=0)
     # for captioning use trim the segment corresponding to a prop
     else:
         stack_vggish = crop_a_segment(stack_vggish, start, end, duration)
@@ -68,16 +73,22 @@ def load_features_from_npy(
         stack_flow = crop_a_segment(stack_flow, start, end, duration)
 
     # add batch dimension, send to device
-    stack_vggish = stack_vggish.to(torch.device(device)).unsqueeze(0)
-    stack_rgb = stack_rgb.to(torch.device(device)).unsqueeze(0)
-    stack_flow = stack_flow.to(torch.device(device)).unsqueeze(0)
+    if not nocuda:
+        stack_vggish = stack_vggish.to(
+            torch.device(device)).unsqueeze(0)
+        stack_rgb = stack_rgb.to(torch.device(device)).unsqueeze(0)
+        stack_flow = stack_flow.to(torch.device(device)).unsqueeze(0)
+    else:
+        stack_vggish = stack_vggish.unsqueeze(0)
+        stack_rgb = stack_rgb.unsqueeze(0)
+        stack_flow = stack_flow.unsqueeze(0)
 
-    return {'audio': stack_vggish,'rgb': stack_rgb,'flow': stack_flow}
+    return {'audio': stack_vggish, 'rgb': stack_rgb, 'flow': stack_flow}
 
 
 def load_prop_model(
-        device: int, prop_generator_model_path: str, pretrained_cap_model_path: str, max_prop_per_vid: int
-    ) -> tuple:
+    device: int, prop_generator_model_path: str, pretrained_cap_model_path: str, max_prop_per_vid: int, nocuda=False
+) -> tuple:
     '''Loading pre-trained proposal generator and config object which was used to train the model.
 
     Args:
@@ -96,7 +107,8 @@ def load_prop_model(
     cfg.device = device
     cfg.max_prop_per_vid = max_prop_per_vid
     cfg.pretrained_cap_model_path = pretrained_cap_model_path
-    cfg.train_meta_path = './data/train.csv'  # in the saved config it is named differently
+    # in the saved config it is named differently
+    cfg.train_meta_path = './data/train.csv'
 
     # load anchors
     anchors = {
@@ -105,14 +117,17 @@ def load_prop_model(
     }
 
     # define model and load the weights
-    model = MultimodalProposalGenerator(cfg, anchors)
+    model = MultimodalProposalGenerator(cfg, anchors, nocuda=nocuda)
     device = torch.device(cfg.device)
-    torch.cuda.set_device(device)
-    model.load_state_dict(checkpoint['model_state_dict'])  # if IncompatibleKeys - ignore
-    model = model.to(cfg.device)
+    if not nocuda:
+        torch.cuda.set_device(device)
+    # if IncompatibleKeys - ignore
+    model.load_state_dict(checkpoint['model_state_dict'])
+    model = model.to(cfg.device) if not nocuda else model
     model.eval()
 
     return cfg, model
+
 
 def load_cap_model(pretrained_cap_model_path: str, device: int) -> tuple:
     '''Loads captioning model along with the Config used to train it and initiates training dataset
@@ -133,21 +148,28 @@ def load_cap_model(pretrained_cap_model_path: str, device: int) -> tuple:
     cfg.train_meta_path = './data/train.csv'
 
     # load train dataset just for special token's indices
-    train_dataset = ActivityNetCaptionsDataset(cfg, 'train', get_full_feat=False)
+    train_dataset = ActivityNetCaptionsDataset(
+        cfg, 'train', get_full_feat=False)
 
     # define model and load the weights
     model = BiModalTransformer(cfg, train_dataset)
-    model = torch.nn.DataParallel(model, [device])
-    model.load_state_dict(cap_model_cpt['model_state_dict'])  # if IncompatibleKeys - ignore
-    model.eval()
+    model = torch.nn.DataParallel(model)
+    model.to('cpu')
 
-    return cfg, model, train_dataset 
+    # if IncompatibleKeys - ignore
+    try:
+        model.load_state_dict(cap_model_cpt['model_state_dict'])
+        model.eval()
+    except Exception as err:
+        pass
+
+    return cfg, model, train_dataset
 
 
 def generate_proposals(
-        prop_model: torch.nn.Module, feature_paths: Dict[str, str], pad_idx: int, cfg: Config, device: int, 
-        duration_in_secs: float
-    ) -> torch.Tensor:
+    prop_model: torch.nn.Module, feature_paths: Dict[str, str], pad_idx: int, cfg: Config, device: int,
+    duration_in_secs: float, nocuda: bool = False
+) -> torch.Tensor:
     '''Generates proposals using the pre-trained proposal model.
 
     Args:
@@ -164,8 +186,8 @@ def generate_proposals(
     '''
     # load features
     feature_stacks = load_features_from_npy(
-        feature_paths, None, None, duration_in_secs, pad_idx, device, get_full_feat=True, 
-        pad_feats_up_to=cfg.pad_feats_up_to
+        feature_paths, None, None, duration_in_secs, pad_idx, device, get_full_feat=True,
+        pad_feats_up_to=cfg.pad_feats_up_to, nocuda=nocuda
     )
 
     # form input batch
@@ -176,7 +198,8 @@ def generate_proposals(
 
     with torch.no_grad():
         # masking out padding in the input features
-        masks = make_masks(batch['feature_stacks'], None, cfg.modality, pad_idx)
+        masks = make_masks(batch['feature_stacks'],
+                           None, cfg.modality, pad_idx)
         # inference call
         predictions, _, _, _ = prop_model(batch['feature_stacks'], None, masks)
         # (center, length) -> (start, end)
@@ -184,17 +207,20 @@ def generate_proposals(
         # sanity-preserving clipping of the start & end points of a segment
         predictions = trim_proposals(predictions, batch['duration_in_secs'])
         # fildering out segments which has 0 or too short length (<0.2) to be a proposal
-        predictions = remove_very_short_segments(predictions, shortest_segment_prior=0.2)
+        predictions = remove_very_short_segments(
+            predictions, shortest_segment_prior=0.2)
         # seƒlect top-[max_prop_per_vid] predictions
-        predictions = select_topk_predictions(predictions, k=cfg.max_prop_per_vid)
+        predictions = select_topk_predictions(
+            predictions, k=cfg.max_prop_per_vid)
 
     return predictions
 
+
 def caption_proposals(
-        cap_model: torch.nn.Module, feature_paths: Dict[str, str], 
-        train_dataset: torch.utils.data.dataset.Dataset, cfg: Config, device: int, proposals: torch.Tensor, 
-        duration_in_secs: float
-    ) -> List[Dict[str, Union[float, str]]]:
+    cap_model: torch.nn.Module, feature_paths: Dict[str, str],
+    train_dataset: torch.utils.data.dataset.Dataset, cfg: Config, device: int, proposals: torch.Tensor,
+    duration_in_secs: float, nocuda: bool = False
+) -> List[Dict[str, Union[float, str]]]:
     '''Captions the proposals using the pre-trained model. You must specify the duration of the orignal video.
 
     Args:
@@ -218,18 +244,20 @@ def caption_proposals(
         for start, end, conf in proposals.squeeze():
             # load features
             feature_stacks = load_features_from_npy(
-                feature_paths, start, end, duration_in_secs, train_dataset.pad_idx, device
+                feature_paths, start, end, duration_in_secs, train_dataset.pad_idx, device, nocuda=nocuda
             )
 
             # decode a caption for each segment one-by-one caption word
             ints_stack = greedy_decoder(
-                cap_model, feature_stacks, cfg.max_len, train_dataset.start_idx, train_dataset.end_idx, 
+                cap_model, feature_stacks, cfg.max_len, train_dataset.start_idx, train_dataset.end_idx,
                 train_dataset.pad_idx, cfg.modality
             )
-            assert len(ints_stack) == 1, 'the func was cleaned to support only batch=1 (validation_1by1_loop)'
+            assert len(
+                ints_stack) == 1, 'the func was cleaned to support only batch=1 (validation_1by1_loop)'
 
             # transform integers into strings
-            strings = [train_dataset.train_vocab.itos[i] for i in ints_stack[0].cpu().numpy()]
+            strings = [train_dataset.train_vocab.itos[i]
+                       for i in ints_stack[0].cpu().numpy()]
 
             # remove starting token
             strings = strings[1:]
@@ -248,10 +276,10 @@ def caption_proposals(
 
             # add results to the list
             results.append({
-                'start': round(start.item(), 1), 
-                'end': round(end.item(), 1), 
+                'start': round(start.item(), 1),
+                'end': round(end.item(), 1),
                 'sentence': sentence
-            })        
+            })
 
     return results
 
@@ -266,7 +294,10 @@ if __name__ == "__main__":
     parser.add_argument('--duration_in_secs', type=float, required=True)
     parser.add_argument('--device_id', type=int, default=0)
     parser.add_argument('--max_prop_per_vid', type=int, default=5)
-    parser.add_argument('--nms_tiou_thresh', type=float, help='removed if tiou > nms_tiou_thresh. In (0, 1)')
+    parser.add_argument('--nms_tiou_thresh', type=float,
+                        help='removed if tiou > nms_tiou_thresh. In (0, 1)')
+    parser.add_argument('--nocuda', action='store_true',
+                        help='if present, the project runs without cuda needed')
     args = parser.parse_args()
 
     feature_paths = {
@@ -276,21 +307,24 @@ if __name__ == "__main__":
     }
 
     # Loading models and other essential stuff
-    cap_cfg, cap_model, train_dataset = load_cap_model(args.pretrained_cap_model_path, args.device_id)
+    cap_cfg, cap_model, train_dataset = load_cap_model(
+        args.pretrained_cap_model_path, args.device_id)
+
     prop_cfg, prop_model = load_prop_model(
-        args.device_id, args.prop_generator_model_path, args.pretrained_cap_model_path, args.max_prop_per_vid
+        args.device_id, args.prop_generator_model_path, args.pretrained_cap_model_path, args.max_prop_per_vid, nocuda=args.nocuda
     )
     # Proposal
     proposals = generate_proposals(
-        prop_model, feature_paths, train_dataset.pad_idx, prop_cfg, args.device_id, args.duration_in_secs
+        prop_model, feature_paths, train_dataset.pad_idx, prop_cfg, args.device_id, args.duration_in_secs, nocuda=args.nocuda
     )
     # NMS if specified
     if args.nms_tiou_thresh is not None:
-        proposals = non_max_suppresion(proposals.squeeze(), args.nms_tiou_thresh)
+        proposals = non_max_suppresion(
+            proposals.squeeze(), args.nms_tiou_thresh)
         proposals = proposals.unsqueeze(0)
     # Captions for each proposal
     captions = caption_proposals(
-        cap_model, feature_paths, train_dataset, cap_cfg, args.device_id, proposals, args.duration_in_secs
+        cap_model, feature_paths, train_dataset, cap_cfg, args.device_id, proposals, args.duration_in_secs, nocuda=args.nocuda
     )
 
     print(captions)
