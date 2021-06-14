@@ -1,13 +1,14 @@
-
 import argparse
 import os
 import sys
+import json
 
 import numpy as np
 import torch
 
 sys.path.insert(1, os.path.join(sys.path[0], '..'))
 # from datasets.load_features import load_features_from_npy
+
 if True:    # prevents the formatter from moving the dependencies before the path edit
     from typing import Dict, List, Union
     from epoch_loops.captioning_epoch_loops import greedy_decoder
@@ -19,7 +20,6 @@ if True:    # prevents the formatter from moving the dependencies before the pat
     from epoch_loops.captioning_epoch_loops import make_masks
     from datasets.load_features import crop_a_segment, pad_segment
     from datasets.captioning_dataset import ActivityNetCaptionsDataset
-
 
 class Config(object):
     # I need this to keep the name defined to load the config objects from model checkpoints.
@@ -119,6 +119,7 @@ def load_prop_model(
     # define model and load the weights
     model = MultimodalProposalGenerator(cfg, anchors, nocuda=nocuda)
     device = torch.device(cfg.device)
+
     if not nocuda:
         torch.cuda.set_device(device)
     # if IncompatibleKeys - ignore
@@ -153,6 +154,7 @@ def load_cap_model(pretrained_cap_model_path: str, device: int) -> tuple:
 
     # define model and load the weights
     model = BiModalTransformer(cfg, train_dataset)
+
     model = torch.nn.DataParallel(model)
     # model.to('cpu')
 
@@ -163,12 +165,14 @@ def load_cap_model(pretrained_cap_model_path: str, device: int) -> tuple:
     except Exception as err:
         pass
 
+
     return cfg, model, train_dataset
 
 
 def generate_proposals(
     prop_model: torch.nn.Module, feature_paths: Dict[str, str], pad_idx: int, cfg: Config, device: int,
     duration_in_secs: float, nocuda: bool = False
+
 ) -> torch.Tensor:
     '''Generates proposals using the pre-trained proposal model.
 
@@ -296,8 +300,12 @@ if __name__ == "__main__":
     parser.add_argument('--max_prop_per_vid', type=int, default=5)
     parser.add_argument('--nms_tiou_thresh', type=float,
                         help='removed if tiou > nms_tiou_thresh. In (0, 1)')
+
     parser.add_argument('--nocuda', action='store_true',
                         help='if present, the project runs without cuda needed')
+    parser.add_argument('--captions_output', type=str,
+                        help='file where to store the captions result', default='captioning-result.json')
+
     args = parser.parse_args()
 
     feature_paths = {
@@ -326,6 +334,9 @@ if __name__ == "__main__":
     captions = caption_proposals(
         cap_model, feature_paths, train_dataset, cap_cfg, args.device_id, proposals, args.duration_in_secs, nocuda=args.nocuda
     )
+
+    with open(args.captions_output, 'w') as fp:
+        json.dump({'captions': captions}, fp)
 
     print(captions)
 
