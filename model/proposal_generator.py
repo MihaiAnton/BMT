@@ -214,13 +214,14 @@ class ProposalGenerator(nn.Module):
 
 class MultimodalProposalGenerator(nn.Module):
 
-    def __init__(self, cfg, anchors):
+    def __init__(self, cfg, anchors, nocuda=False):
         super(MultimodalProposalGenerator, self).__init__()
         assert cfg.modality == 'audio_video'
         self.cfg = cfg
         self.anchors = anchors
         self.EPS = 1e-16
         self.num_logits = 3  # 3: c, w, obj
+        self.nocuda = nocuda
 
         if cfg.use_linear_embedder:
             self.emb_V = FeatureEmbedder(cfg.d_vid, cfg.d_model_video)
@@ -244,7 +245,7 @@ class MultimodalProposalGenerator(nn.Module):
             encoder_weights = {k: v for k, v in cap_model_cpt['model_state_dict'].items() if 'encoder' in k}
             encoder_weights = {k.replace('module.encoder.', ''): v for k, v in encoder_weights.items()}
             self.encoder.load_state_dict(encoder_weights)
-            self.encoder = self.encoder.to(cfg.device)
+            self.encoder = self.encoder.to(cfg.device) if not nocuda else self.encoder
             for param in self.encoder.parameters():
                 param.requires_grad = cfg.finetune_cap_encoder
         else:
@@ -281,13 +282,14 @@ class MultimodalProposalGenerator(nn.Module):
         x = x.view(B, S, anchors_num, self.num_logits)
 
         x = x.permute(0, 2, 1, 3).contiguous()
-        grid_cell = torch.arange(S).view(1, 1, S).float().to(self.cfg.device)
+        grid_cell = torch.arange(S).view(1, 1, S).float()
+        grid_cell = grid_cell.to(self.cfg.device) if not self.nocuda else grid_cell
         # After dividing anchors by the stride, they represent the size size of
         # how many grid celts they are overlapping: 1.2 = 1 and 20% of a grid cell.
         # After multiplying them by the stride, the pixel values are going to be
         # obtained.
         anchors_list = [[anchor / stride] for anchor in anchors_list]
-        anchors_tensor = torch.tensor(anchors_list, device=self.cfg.device)
+        anchors_tensor = torch.tensor(anchors_list) if not self.nocuda else torch.tensor(anchors_list, device=self.cfg.device)
         # (A, 2) -> (1, A, 1) for broadcasting
         prior_length = anchors_tensor.view(1, anchors_num, 1)
 
