@@ -1,13 +1,5 @@
 from typing import Dict, List, Union
-from epoch_loops.captioning_epoch_loops import greedy_decoder
-from utilities.proposal_utils import (get_corner_coords,
-                                      remove_very_short_segments,
-                                      select_topk_predictions, trim_proposals, non_max_suppresion)
-from model.proposal_generator import MultimodalProposalGenerator
-from model.captioning_module import BiModalTransformer
-from epoch_loops.captioning_epoch_loops import make_masks
-from datasets.load_features import crop_a_segment, pad_segment
-from datasets.captioning_dataset import ActivityNetCaptionsDataset
+
 import argparse
 import os
 import sys
@@ -18,6 +10,17 @@ import torch
 
 sys.path.insert(1, os.path.join(sys.path[0], '..'))
 # from datasets.load_features import load_features_from_npy
+from datasets.load_features import crop_a_segment, pad_segment
+from datasets.captioning_dataset import ActivityNetCaptionsDataset
+from model.proposal_generator import MultimodalProposalGenerator
+from model.captioning_module import BiModalTransformer
+from epoch_loops.captioning_epoch_loops import make_masks
+from epoch_loops.captioning_epoch_loops import greedy_decoder
+from utilities.proposal_utils import (get_corner_coords,
+                                      remove_very_short_segments,
+                                      select_topk_predictions, trim_proposals, non_max_suppresion)
+
+
 
 
 class Config(object):
