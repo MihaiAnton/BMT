@@ -2,6 +2,7 @@ import argparse
 import json
 import os
 
+import numpy as np
 import pandas as pd
 import torch
 from torch.utils.data import DataLoader
@@ -10,6 +11,8 @@ from tqdm import tqdm
 from datasets.captioning_dataset import ActivityNetCaptionsDataset
 from epoch_loops.captioning_epoch_loops import greedy_decoder, validation_1by1_loop
 from model.captioning_module import BiModalTransformer, Transformer
+
+import json
 
 def convert_props_in_json_to_csv(prop_pred_path, val_1_json_path, avail_mp4_path):
     '''
@@ -130,6 +133,10 @@ def eval_on_learned_props(args):
     )
 
     print(val_metrics_pred_prop)
-    
+
+    # Save the predictions
+    with open('predictions.json', 'w') as f:
+        f.write(json.dumps(val_metrics_pred_prop))
+
     # If you missed the scores after printing you may find it in the args.pretrained_cap_model_path
     # folder with under the 'results_learned_props_e{epoch}.json' name
