@@ -120,6 +120,7 @@ def load_prop_model(
     model = MultimodalProposalGenerator(cfg, anchors, nocuda=nocuda)
     device = torch.device(cfg.device)
     if not nocuda:
+        print(device)
         torch.cuda.set_device(device)
     # if IncompatibleKeys - ignore
     model.load_state_dict(checkpoint['model_state_dict'])
