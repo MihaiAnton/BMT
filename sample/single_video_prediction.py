@@ -125,8 +125,7 @@ def load_prop_model(
         torch.cuda.set_device(device)
         # if IncompatibleKeys - ignore
         model.load_state_dict(checkpoint['model_state_dict'])
-    else:
-        model = model.to(cfg.device)
+        model.cuda(cfg.device)
     model.eval()
 
     return cfg, model
