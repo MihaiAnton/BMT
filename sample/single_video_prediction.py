@@ -79,9 +79,9 @@ def load_features_from_npy(
         stack_rgb = stack_rgb.to(torch.device(device)).unsqueeze(0)
         stack_flow = stack_flow.to(torch.device(device)).unsqueeze(0)
     else:
-        stack_vggish = stack_vggish.unsqueeze(0)
-        stack_rgb = stack_rgb.unsqueeze(0)
-        stack_flow = stack_flow.unsqueeze(0)
+        stack_vggish = stack_vggish.unsqueeze(0).to('cpu')
+        stack_rgb = stack_rgb.unsqueeze(0).to('cpu')
+        stack_flow = stack_flow.unsqueeze(0).to('cpu')
 
     return {'audio': stack_vggish, 'rgb': stack_rgb, 'flow': stack_flow}
 
