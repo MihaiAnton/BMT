@@ -79,9 +79,9 @@ def load_features_from_npy(
         stack_rgb = stack_rgb.to(torch.device(device)).unsqueeze(0)
         stack_flow = stack_flow.to(torch.device(device)).unsqueeze(0)
     else:
-        stack_vggish = stack_vggish.unsqueeze(0).to('cpu')
-        stack_rgb = stack_rgb.unsqueeze(0).to('cpu')
-        stack_flow = stack_flow.unsqueeze(0).to('cpu')
+        stack_vggish = stack_vggish.unsqueeze(0).cpu()
+        stack_rgb = stack_rgb.unsqueeze(0).cpu()
+        stack_flow = stack_flow.unsqueeze(0).cpu()
 
     return {'audio': stack_vggish, 'rgb': stack_rgb, 'flow': stack_flow}
 
@@ -131,7 +131,7 @@ def load_prop_model(
     return cfg, model
 
 
-def load_cap_model(pretrained_cap_model_path: str, device: int) -> tuple:
+def load_cap_model(pretrained_cap_model_path: str, device: int, nocuda: bool = False) -> tuple:
     '''Loads captioning model along with the Config used to train it and initiates training dataset
        to build the vocabulary including special tokens.
 
@@ -155,8 +155,13 @@ def load_cap_model(pretrained_cap_model_path: str, device: int) -> tuple:
 
     # define model and load the weights
     model = BiModalTransformer(cfg, train_dataset)
-    model.to(cfg.device)
-    model = torch.nn.DataParallel(model)
+
+    if not nocuda:
+        model.to(cfg.device)
+        model = torch.nn.DataParallel(model)
+    else:
+        model.cpu()
+
 
     # if IncompatibleKeys - ignore
     try:
@@ -314,7 +319,7 @@ if __name__ == "__main__":
     }
     # Loading models and other essential stuff
     cap_cfg, cap_model, train_dataset = load_cap_model(
-        args.pretrained_cap_model_path, args.device_id)
+        args.pretrained_cap_model_path, args.device_id, nocuda=args.nocuda)
 
     prop_cfg, prop_model = load_prop_model(
         args.device_id, args.prop_generator_model_path, args.pretrained_cap_model_path, args.max_prop_per_vid, nocuda=args.nocuda
