@@ -123,9 +123,10 @@ def load_prop_model(
 
     if not nocuda:
         torch.cuda.set_device(device)
-    # if IncompatibleKeys - ignore
-    model.load_state_dict(checkpoint['model_state_dict'])
-    model = model.to(cfg.device) if not nocuda else model
+        # if IncompatibleKeys - ignore
+        model.load_state_dict(checkpoint['model_state_dict'])
+    else:
+        model = model.to(cfg.device)
     model.eval()
 
     return cfg, model
@@ -172,7 +173,6 @@ def load_cap_model(pretrained_cap_model_path: str, device: int) -> tuple:
 def generate_proposals(
     prop_model: torch.nn.Module, feature_paths: Dict[str, str], pad_idx: int, cfg: Config, device: int,
     duration_in_secs: float, nocuda: bool = False
-
 ) -> torch.Tensor:
     '''Generates proposals using the pre-trained proposal model.
 
@@ -321,7 +321,6 @@ if __name__ == "__main__":
         args.device_id, args.prop_generator_model_path, args.pretrained_cap_model_path, args.max_prop_per_vid, nocuda=args.nocuda
     )
     # Proposal
-    print(prop_model.device)
     proposals = generate_proposals(
         prop_model, feature_paths, train_dataset.pad_idx, prop_cfg, args.device_id, args.duration_in_secs, nocuda=args.nocuda
     )
