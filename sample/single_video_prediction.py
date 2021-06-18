@@ -312,7 +312,6 @@ if __name__ == "__main__":
         'rgb': args.rgb_features_path,
         'flow': args.flow_features_path,
     }
-    print(args.nocuda)
     # Loading models and other essential stuff
     cap_cfg, cap_model, train_dataset = load_cap_model(
         args.pretrained_cap_model_path, args.device_id)
