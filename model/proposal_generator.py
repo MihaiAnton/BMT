@@ -289,7 +289,7 @@ class MultimodalProposalGenerator(nn.Module):
         # After multiplying them by the stride, the pixel values are going to be
         # obtained.
         anchors_list = [[anchor / stride] for anchor in anchors_list]
-        anchors_tensor = torch.tensor(anchors_list) if not self.nocuda else torch.tensor(anchors_list, device=x.device)
+        anchors_tensor = torch.tensor(anchors_list, device=x.device)
         # (A, 2) -> (1, A, 1) for broadcasting
         prior_length = anchors_tensor.view(1, anchors_num, 1)
 
