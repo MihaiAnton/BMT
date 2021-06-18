@@ -119,7 +119,6 @@ def load_prop_model(
     # define model and load the weights
     model = MultimodalProposalGenerator(cfg, anchors, nocuda=nocuda)
     device = torch.device(cfg.device)
-
     if not nocuda:
         torch.cuda.set_device(device)
     # if IncompatibleKeys - ignore
@@ -301,7 +300,7 @@ if __name__ == "__main__":
     parser.add_argument('--nms_tiou_thresh', type=float,
                         help='removed if tiou > nms_tiou_thresh. In (0, 1)')
 
-    parser.add_argument('--nocuda', action='store_false',
+    parser.add_argument('--nocuda', action='store_true',
                         help='if present, the project runs without cuda needed')
     parser.add_argument('--captions_output', type=str,
                         help='file where to store the captions result', default='captioning-result.json')
@@ -313,7 +312,7 @@ if __name__ == "__main__":
         'rgb': args.rgb_features_path,
         'flow': args.flow_features_path,
     }
-
+    print(args.nocuda)
     # Loading models and other essential stuff
     cap_cfg, cap_model, train_dataset = load_cap_model(
         args.pretrained_cap_model_path, args.device_id)

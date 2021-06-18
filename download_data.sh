@@ -16,7 +16,9 @@ fi
 
 echo "Downloading i3d features"
 cd data/
+wget https://a3s.fi/swift/v1/AUTH_a235c0f452d648828f745589cde1219a/bmt/i3d_25fps_stack64step64_2stream_npy.zip -q --show-progress
 echo "Downloading vggish features"
+wget https://a3s.fi/swift/v1/AUTH_a235c0f452d648828f745589cde1219a/bmt/vggish_npy.zip -q --show-progress
 cd ../
 
 echo "Downloading GloVe embeddings"
