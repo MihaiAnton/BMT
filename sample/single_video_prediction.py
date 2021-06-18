@@ -104,6 +104,7 @@ def load_prop_model(
     # load and patch the config for user-defined arguments
     checkpoint = torch.load(prop_generator_model_path, map_location='cpu')
     cfg = checkpoint['config']
+    print(device)
     cfg.device = device
     cfg.max_prop_per_vid = max_prop_per_vid
     cfg.pretrained_cap_model_path = pretrained_cap_model_path
@@ -157,7 +158,6 @@ def load_cap_model(pretrained_cap_model_path: str, device: int) -> tuple:
     model = BiModalTransformer(cfg, train_dataset)
     model.to(cfg.device)
     model = torch.nn.DataParallel(model)
-    # model.to('cpu')
 
     # if IncompatibleKeys - ignore
     try:
