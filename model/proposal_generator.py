@@ -305,7 +305,7 @@ class MultimodalProposalGenerator(nn.Module):
         # broadcasting (B, A, S) + (1, 1, S)
         # For now, we are not going to multiply them by stride since
         # we need them in make_targets
-        print(x)
+        print(x.device)
         print(predictions.device)
         print(sigma_c.device)
         print(grid_cell.device)
