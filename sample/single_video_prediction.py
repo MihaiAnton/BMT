@@ -301,7 +301,7 @@ if __name__ == "__main__":
     parser.add_argument('--nms_tiou_thresh', type=float,
                         help='removed if tiou > nms_tiou_thresh. In (0, 1)')
 
-    parser.add_argument('--nocuda', action='store_true',
+    parser.add_argument('--nocuda', action='store_false',
                         help='if present, the project runs without cuda needed')
     parser.add_argument('--captions_output', type=str,
                         help='file where to store the captions result', default='captioning-result.json')
