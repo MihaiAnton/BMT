@@ -155,7 +155,7 @@ def load_cap_model(pretrained_cap_model_path: str, device: int) -> tuple:
 
     # define model and load the weights
     model = BiModalTransformer(cfg, train_dataset)
-
+    model.to(cfg.device)
     model = torch.nn.DataParallel(model)
     # model.to('cpu')
 
