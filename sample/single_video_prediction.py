@@ -155,7 +155,6 @@ def load_cap_model(pretrained_cap_model_path: str, device: int, nocuda: bool = F
 
     # define model and load the weights
     model = BiModalTransformer(cfg, train_dataset)
-
     if not nocuda:
         model.to(cfg.device)
         model = torch.nn.DataParallel(model)
@@ -258,7 +257,7 @@ def caption_proposals(
             # decode a caption for each segment one-by-one caption word
             ints_stack = greedy_decoder(
                 cap_model, feature_stacks, cfg.max_len, train_dataset.start_idx, train_dataset.end_idx,
-                train_dataset.pad_idx, cfg.modality
+                train_dataset.pad_idx, cfg.modality, nocuda=nocuda
             )
             assert len(
                 ints_stack) == 1, 'the func was cleaned to support only batch=1 (validation_1by1_loop)'
