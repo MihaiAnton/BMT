@@ -120,7 +120,6 @@ def load_prop_model(
     # define model and load the weights
     model = MultimodalProposalGenerator(cfg, anchors, nocuda=nocuda)
     device = torch.device(cfg.device)
-    print(device)
 
     if not nocuda:
         torch.cuda.set_device(device)
@@ -322,6 +321,7 @@ if __name__ == "__main__":
         args.device_id, args.prop_generator_model_path, args.pretrained_cap_model_path, args.max_prop_per_vid, nocuda=args.nocuda
     )
     # Proposal
+    print(prop_model.device)
     proposals = generate_proposals(
         prop_model, feature_paths, train_dataset.pad_idx, prop_cfg, args.device_id, args.duration_in_secs, nocuda=args.nocuda
     )
