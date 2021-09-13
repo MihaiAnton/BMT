@@ -289,7 +289,7 @@ class MultimodalProposalGenerator(nn.Module):
         # After multiplying them by the stride, the pixel values are going to be
         # obtained.
         anchors_list = [[anchor / stride] for anchor in anchors_list]
-        anchors_tensor = torch.tensor(anchors_list) if not self.nocuda else torch.tensor(anchors_list, device=self.cfg.device)
+        anchors_tensor = torch.tensor(anchors_list, device=x.device)
         # (A, 2) -> (1, A, 1) for broadcasting
         prior_length = anchors_tensor.view(1, anchors_num, 1)
 
@@ -301,7 +301,7 @@ class MultimodalProposalGenerator(nn.Module):
         # prediction values that are going to be used for the original image
         # we need to detach them from the graph as we don't need to backproparate
         # on them
-        predictions = x.clone().detach()
+        predictions = x.clone().detach().to(x.device)
         # broadcasting (B, A, S) + (1, 1, S)
         # For now, we are not going to multiply them by stride since
         # we need them in make_targets

@@ -10,7 +10,7 @@ from datasets.load_features import fill_missing_features, load_features_from_npy
 
 def caption_iterator(cfg, batch_size, phase):
     print(f'Contructing caption_iterator for "{phase}" phase')
-    spacy_en = spacy.load('en')
+    spacy_en = spacy.load('en_core_web_sm')
     
     def tokenize_en(txt):
         return [token.text for token in spacy_en.tokenizer(txt)]

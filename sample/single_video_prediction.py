@@ -79,9 +79,9 @@ def load_features_from_npy(
         stack_rgb = stack_rgb.to(torch.device(device)).unsqueeze(0)
         stack_flow = stack_flow.to(torch.device(device)).unsqueeze(0)
     else:
-        stack_vggish = stack_vggish.unsqueeze(0)
-        stack_rgb = stack_rgb.unsqueeze(0)
-        stack_flow = stack_flow.unsqueeze(0)
+        stack_vggish = stack_vggish.unsqueeze(0).cpu()
+        stack_rgb = stack_rgb.unsqueeze(0).cpu()
+        stack_flow = stack_flow.unsqueeze(0).cpu()
 
     return {'audio': stack_vggish, 'rgb': stack_rgb, 'flow': stack_flow}
 
@@ -104,6 +104,7 @@ def load_prop_model(
     # load and patch the config for user-defined arguments
     checkpoint = torch.load(prop_generator_model_path, map_location='cpu')
     cfg = checkpoint['config']
+    print(device)
     cfg.device = device
     cfg.max_prop_per_vid = max_prop_per_vid
     cfg.pretrained_cap_model_path = pretrained_cap_model_path
@@ -122,15 +123,15 @@ def load_prop_model(
 
     if not nocuda:
         torch.cuda.set_device(device)
-    # if IncompatibleKeys - ignore
-    model.load_state_dict(checkpoint['model_state_dict'])
-    model = model.to(cfg.device) if not nocuda else model
+        # if IncompatibleKeys - ignore
+        model.load_state_dict(checkpoint['model_state_dict'])
+        model.cuda(cfg.device)
     model.eval()
 
     return cfg, model
 
 
-def load_cap_model(pretrained_cap_model_path: str, device: int) -> tuple:
+def load_cap_model(pretrained_cap_model_path: str, device: int, nocuda: bool = False) -> tuple:
     '''Loads captioning model along with the Config used to train it and initiates training dataset
        to build the vocabulary including special tokens.
 
@@ -154,9 +155,12 @@ def load_cap_model(pretrained_cap_model_path: str, device: int) -> tuple:
 
     # define model and load the weights
     model = BiModalTransformer(cfg, train_dataset)
+    if not nocuda:
+        model.to(cfg.device)
+        model = torch.nn.DataParallel(model)
+    else:
+        model.cpu()
 
-    model = torch.nn.DataParallel(model)
-    # model.to('cpu')
 
     # if IncompatibleKeys - ignore
     try:
@@ -172,7 +176,6 @@ def load_cap_model(pretrained_cap_model_path: str, device: int) -> tuple:
 def generate_proposals(
     prop_model: torch.nn.Module, feature_paths: Dict[str, str], pad_idx: int, cfg: Config, device: int,
     duration_in_secs: float, nocuda: bool = False
-
 ) -> torch.Tensor:
     '''Generates proposals using the pre-trained proposal model.
 
@@ -254,7 +257,7 @@ def caption_proposals(
             # decode a caption for each segment one-by-one caption word
             ints_stack = greedy_decoder(
                 cap_model, feature_stacks, cfg.max_len, train_dataset.start_idx, train_dataset.end_idx,
-                train_dataset.pad_idx, cfg.modality
+                train_dataset.pad_idx, cfg.modality, nocuda=nocuda
             )
             assert len(
                 ints_stack) == 1, 'the func was cleaned to support only batch=1 (validation_1by1_loop)'
@@ -313,10 +316,9 @@ if __name__ == "__main__":
         'rgb': args.rgb_features_path,
         'flow': args.flow_features_path,
     }
-
     # Loading models and other essential stuff
     cap_cfg, cap_model, train_dataset = load_cap_model(
-        args.pretrained_cap_model_path, args.device_id)
+        args.pretrained_cap_model_path, args.device_id, nocuda=args.nocuda)
 
     prop_cfg, prop_model = load_prop_model(
         args.device_id, args.prop_generator_model_path, args.pretrained_cap_model_path, args.max_prop_per_vid, nocuda=args.nocuda

@@ -39,7 +39,7 @@ def calculate_metrics(
     return metrics
 
 
-def greedy_decoder(model, feature_stacks, max_len, start_idx, end_idx, pad_idx, modality):
+def greedy_decoder(model, feature_stacks, max_len, start_idx, end_idx, pad_idx, modality, nocuda: bool = False):
     model.eval()
     assert model.training is False, 'call model.eval first'
 
@@ -53,7 +53,8 @@ def greedy_decoder(model, feature_stacks, max_len, start_idx, end_idx, pad_idx, 
             device = feature_stacks['rgb'].device
         else:
             raise Exception(f'Unknown modality: {modality}')
-
+        if nocuda:
+            device = 'cpu'
         # a mask containing 1s if the ending tok occured, 0s otherwise
         # we are going to stop if ending token occured in every sequence
         completeness_mask = torch.zeros(B, 1).byte().to(device)
